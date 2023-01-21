@@ -9,4 +9,12 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="7.0.2" PrivateAssets="all" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorDocs.Primer\BlazorDocs.Primer.csproj" />
+    <ProjectReference Include="..\BlazorDocs.SourceGenerators\BlazorDocs.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\BlazorDocs\BlazorDocs.csproj" />
+  </ItemGroup>
+
+  <Import Project="..\BlazorDocs\Build\BlazorDocs.targets" />
+
 </Project>

@@ -9,4 +9,8 @@
     <SupportedPlatform Include="browser" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorDocs\BlazorDocs.csproj" />
+  </ItemGroup>
+
 </Project>

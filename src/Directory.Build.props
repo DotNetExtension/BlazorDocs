@@ -28,9 +28,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="$(MSBuildThisFileDirectory)../assets/nuget.png" Pack="True" PackagePath="/" Visible="False" />
-    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="True" PackagePath="/" Visible="False" />
-    <None Include="$(MSBuildThisFileDirectory)../LICENSE.txt" Pack="True" PackagePath="/" Visible="False" />
+    <None Include="$(MSBuildThisFileDirectory)../assets/nuget.png" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="true" PackagePath="/" Visible="false" />
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE.txt" Pack="true" PackagePath="/" Visible="false" />
   </ItemGroup>
 
 </Project>

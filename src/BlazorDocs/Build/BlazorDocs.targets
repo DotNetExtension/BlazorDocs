@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <AdditionalFiles Include="**/*.md" Exclude="bin/**;obj/**" />
+  </ItemGroup>
+</Project>

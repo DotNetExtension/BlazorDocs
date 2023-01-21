@@ -9,4 +9,17 @@
     <SupportedPlatform Include="browser" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\BlazorDocs.SourceGenerators\BlazorDocs.SourceGenerators.csproj" OutputItemType="Content" ReferenceOutputAssembly="false" CopyToOutputDirectory="PreserveNewest" Pack="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(OutputPath)BlazorDocs.SourceGenerators.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(OutputPath)Markdig.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="$(OutputPath)YamlDotNet.dll" Pack="true" PackagePath="analyzers/dotnet/cs" Visible="false" />
+    <None Include="Build/BlazorDocs.targets" Pack="true" PackagePath="build" />
+    <None Include="Build/BlazorDocs.targets" Pack="true" PackagePath="buildMultiTargeting" />
+    <None Include="Build/BlazorDocs.targets" Pack="true" PackagePath="buildTransitive" />
+  </ItemGroup>
+
 </Project>
