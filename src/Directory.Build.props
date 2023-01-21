@@ -1,10 +1,36 @@
 <Project>
 
   <PropertyGroup>
+    <Product>Blazor Docs</Product>
+    <Version>1.0.0</Version>
+    <Authors>Andrew Babbitt</Authors>
+    <Description>A framework for building documentation applications using Blazor.</Description>
+    <RepositoryUrl>https://github.com/AndrewBabbitt97/BlazorDocs</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/AndrewBabbitt97/BlazorDocs</PackageProjectUrl>
+    <PackageReleaseNotes>https://github.com/AndrewBabbitt97/BlazorDocs/releases</PackageReleaseNotes>
+    <PackageTags>Blazor;Documentation;Docs;BlazorDocs</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <WarningsAsErrors>Nullable</WarningsAsErrors>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <BaseOutputPath>$(MSBuildThisFileDirectory)../bin/$(MSBuildProjectName)</BaseOutputPath>
+    <Copyright>© $(Authors). All rights reserved.</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+    <PackageIcon>nuget.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)../assets/nuget.png" Pack="True" PackagePath="/" Visible="False" />
+    <None Include="$(MSBuildThisFileDirectory)../README.md" Pack="True" PackagePath="/" Visible="False" />
+    <None Include="$(MSBuildThisFileDirectory)../LICENSE.txt" Pack="True" PackagePath="/" Visible="False" />
+  </ItemGroup>
 
 </Project>
