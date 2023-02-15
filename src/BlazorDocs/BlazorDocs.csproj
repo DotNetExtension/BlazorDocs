@@ -22,4 +22,8 @@
     <None Include="Build/BlazorDocs.targets" Pack="true" PackagePath="buildTransitive" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components" Version="7.0.3" />
+  </ItemGroup>
+
 </Project>
