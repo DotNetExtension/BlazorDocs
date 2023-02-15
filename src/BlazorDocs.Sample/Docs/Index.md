@@ -1,2 +1,6 @@
-# Docs
-Initial page
+---
+title: Blazor Docs
+layout: MainLayout
+---
+# Header
+Content
