@@ -3,10 +3,13 @@
 // See the LICENSE file in the project root for more information.
 
 using BlazorDocs.Sample;
+using BlazorDocs.Sample.Extensions;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 
 var builder = WebAssemblyHostBuilder.CreateDefault(args);
+
+builder.Services.UseBlazorDocs();
 
 builder.RootComponents.Add<App>("#app");
 builder.RootComponents.Add<HeadOutlet>("head::after");
