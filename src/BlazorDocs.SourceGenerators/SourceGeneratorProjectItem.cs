@@ -28,9 +28,9 @@ namespace BlazorDocs.SourceGenerators
         public string FullPath => _additionalText.Path;
 
         /// <summary>
-        /// The markdown source text.
+        /// The source text.
         /// </summary>
-        public string MarkdownSourceText { get; } = "";
+        public string SourceText { get; } = string.Empty;
 
         /// <summary>
         /// The <see cref="AdditionalText"/> representing the project item.
@@ -50,7 +50,7 @@ namespace BlazorDocs.SourceGenerators
             var text = additionalText.GetText();
             if (text is not null)
             {
-                MarkdownSourceText = text.ToString();
+                SourceText = text.ToString();
             }
         }
     }

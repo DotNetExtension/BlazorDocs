@@ -3,13 +3,19 @@
 // See the LICENSE file in the project root for more information.
 
 using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using Markdig;
+using Markdig.Extensions.Yaml;
+using Markdig.Syntax;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
+using YamlDotNet.RepresentationModel;
+using YamlDotNet.Serialization;
 
 namespace BlazorDocs.SourceGenerators
 {
@@ -19,6 +25,40 @@ namespace BlazorDocs.SourceGenerators
     [Generator]
     public class MarkdownSourceGenerator : IIncrementalGenerator
     {
+        /// <summary>
+        /// The markdown pipeline.
+        /// </summary>
+        private readonly MarkdownPipeline _markdownPipeline;
+
+        /// <summary>
+        /// The yaml deserializer.
+        /// </summary>
+        private readonly IDeserializer _yamlDeserializer;
+
+        /// <summary>
+        /// The json serializer.
+        /// </summary>
+        private readonly ISerializer _jsonSerializer;
+
+        /// <summary>
+        /// Creates a <see cref="MarkdownSourceGenerator"/> instance.
+        /// </summary>
+        public MarkdownSourceGenerator()
+        {
+            _markdownPipeline = new MarkdownPipelineBuilder()
+                .UseAdvancedExtensions()
+                .ConfigureNewLine(Environment.NewLine)
+                .UseYamlFrontMatter()
+                .Build();
+
+            _yamlDeserializer = new DeserializerBuilder()
+                .Build();
+
+            _jsonSerializer = new SerializerBuilder()
+                .JsonCompatible()
+                .Build();
+        }
+
         /// <summary>
         /// Initializes the source code generator.
         /// </summary>
@@ -30,24 +70,50 @@ namespace BlazorDocs.SourceGenerators
             var markdownSourceGeneratorOptions = analyzerConfigOptions
                 .Select(ComputeMarkdownSourceGeneratorOptions);
 
-            var sourceItems = context.AdditionalTextsProvider
+            var configItems = context.AdditionalTextsProvider
+                .Where(f => f.Path.EndsWith("Docs.yaml", StringComparison.OrdinalIgnoreCase))
+                .Combine(analyzerConfigOptions)
+                .Select(ComputeProjectItem);
+
+            var markdownItems = context.AdditionalTextsProvider
                 .Where(f => f.Path.EndsWith(".md", StringComparison.OrdinalIgnoreCase))
                 .Combine(analyzerConfigOptions)
                 .Select(ComputeProjectItem);
 
-            var generatedOutput = sourceItems
+            var generatedConfigOutput = configItems
+                .Combine(markdownItems.Collect())
                 .Combine(markdownSourceGeneratorOptions)
-                .Select(static (pair, _) =>
+                .Select((pair, _) =>
                 {
-                    var (sourceItem, markdownSourceGeneratorOptions) = pair;
+                    var ((configItem, markdownItems), markdownSourceGeneratorOptions) = pair;
 
-                    var hintName = GetIdentifierFromPath(sourceItem.FilePath) + ".g.cs";
-                    var csharpDocument = GenerateCode(markdownSourceGeneratorOptions, sourceItem);
+                    var hintName = "BlazorDocsExtensions.g.cs";
+                    var csharpDocument = GenerateConfigCode(markdownSourceGeneratorOptions, configItem, markdownItems);
 
                     return (hintName, csharpDocument);
                 });
 
-            context.RegisterSourceOutput(generatedOutput, static (context, pair) =>
+            var generatedMarkdownOutput = markdownItems
+                .Combine(configItems.Collect())
+                .Combine(markdownSourceGeneratorOptions)
+                .Select((pair, _) =>
+                {
+                    var ((sourceItem, configItems), markdownSourceGeneratorOptions) = pair;
+
+                    var hintName = GetIdentifierFromPath(sourceItem.FilePath) + ".g.cs";
+                    var csharpDocument = GenerateMarkdownCode(markdownSourceGeneratorOptions, sourceItem, configItems.First());
+
+                    return (hintName, csharpDocument);
+                });
+
+            context.RegisterSourceOutput(generatedConfigOutput, static (context, pair) =>
+            {
+                var (hintName, csharpDocument) = pair;
+
+                context.AddSource(hintName, csharpDocument);
+            });
+
+            context.RegisterSourceOutput(generatedMarkdownOutput, static (context, pair) =>
             {
                 var (hintName, csharpDocument) = pair;
 
@@ -90,19 +156,95 @@ namespace BlazorDocs.SourceGenerators
         }
 
         /// <summary>
+        /// Generates code for a config file.
+        /// </summary>
+        /// <param name="options">The <see cref="MarkdownSourceGenerationOptions"/>.</param>
+        /// <param name="item">The <see cref="SourceGeneratorProjectItem"/>.</param>
+        /// <param name="markdownFiles">The markdown files.</param>
+        /// <returns>The resulting code document.</returns>
+        private string GenerateConfigCode(MarkdownSourceGenerationOptions options, SourceGeneratorProjectItem item, ImmutableArray<SourceGeneratorProjectItem> markdownFiles)
+        {
+            var builder = new StringBuilder();
+
+            var configYamlStream = GetYamlStreamFromText(item.SourceText);
+            var configYamlNode = (YamlMappingNode)configYamlStream.First().RootNode;
+
+            var configTheme = configYamlNode.Where(c => c.Key.ToString() == "theme").Select(c => c.Value).First();
+
+            var pages = markdownFiles.Select(m => (file: m, route: GetRouteFromPath(m.FilePath)));
+
+            var (rootFile, rootRoute) = pages
+                .First(p => string.Equals(p.file.FilePath, Path.Combine(Path.GetDirectoryName(item.FilePath)!, "Index.md"), StringComparison.OrdinalIgnoreCase));
+
+            var rootPageYamlStream = GetYamlStreamFromMarkdown(rootFile.SourceText);
+            var rootPageYamlNode = (YamlMappingNode)rootPageYamlStream.First().RootNode;
+
+            rootPageYamlNode.Add("link", rootRoute);
+
+            MapPageChildren(rootPageYamlNode, rootRoute, pages.Where(p => p.route != rootRoute));
+
+            builder.AppendLine("// <auto-generated/>");
+            builder.AppendLine();
+            builder.AppendLine("using BlazorDocs.Models;");
+            builder.AppendLine("using BlazorDocs.Services;");
+            builder.AppendLine();
+            builder.AppendLine($"namespace {options.RootNamespace}.Extensions");
+            builder.AppendLine("{");
+            builder.AppendLine("    /// <summary>");
+            builder.AppendLine("    /// Extension methods for Blazor Docs.");
+            builder.AppendLine("    /// </summary>");
+            builder.AppendLine("    public static class BlazorDocsExtensions");
+            builder.AppendLine("    {");
+            builder.AppendLine("        /// <summary>");
+            builder.AppendLine("        /// Adds Blazor Docs services to the service collection.");
+            builder.AppendLine("        /// </summary>");
+            builder.AppendLine("        /// <param name=\"services\">The <see cref=\"IServiceCollection\"/> to add Blazor Docs to.</param>");
+            builder.AppendLine("        /// <returns>The <see cref=\"IServiceCollection\"/>.</returns>");
+            builder.AppendLine("        public static IServiceCollection UseBlazorDocs(this IServiceCollection services)");
+            builder.AppendLine("        {");
+            builder.AppendLine("            var data = new DocumentationData()");
+            builder.AppendLine("            {");
+            builder.AppendLine("                Config =");
+            builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"");
+            builder.AppendLine($"{GetJsonFromYamlStream(configYamlStream).TrimEnd(Environment.NewLine.ToCharArray())}");
+            builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\",");
+            builder.AppendLine("                RootPage =");
+            builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"");
+            builder.AppendLine($"{GetJsonFromYamlStream(rootPageYamlStream).TrimEnd(Environment.NewLine.ToCharArray())}");
+            builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"");
+            builder.AppendLine("            };");
+            builder.AppendLine();
+            builder.AppendLine("            services.AddSingleton(data);");
+            builder.AppendLine($"            services.AddSingleton<DocumentationService<{configTheme}.Models.Config, {configTheme}.Models.Page>>();");
+            builder.AppendLine();
+            builder.AppendLine("            return services;");
+            builder.AppendLine("        }");
+            builder.AppendLine("    }");
+            builder.AppendLine("}");
+
+            return builder.ToString();
+        }
+
+        /// <summary>
         /// Generates code for a markdown file.
         /// </summary>
         /// <param name="options">The <see cref="MarkdownSourceGenerationOptions"/>.</param>
         /// <param name="item">The <see cref="SourceGeneratorProjectItem"/>.</param>
+        /// <param name="configItem">The <see cref="SourceGeneratorProjectItem"/> for the config.</param>
         /// <returns>The resulting code document.</returns>
-        private static string GenerateCode(MarkdownSourceGenerationOptions options, SourceGeneratorProjectItem item)
+        private string GenerateMarkdownCode(MarkdownSourceGenerationOptions options, SourceGeneratorProjectItem item, SourceGeneratorProjectItem configItem)
         {
             var builder = new StringBuilder();
 
-            var markdownPipeline = new MarkdownPipelineBuilder()
-                .UseAdvancedExtensions()
-                .ConfigureNewLine(Environment.NewLine)
-                .Build();
+            var configYamlStream = GetYamlStreamFromText(configItem.SourceText);
+            var configYamlNode = (YamlMappingNode)configYamlStream.First().RootNode;
+
+            var configTheme = configYamlNode.Where(c => c.Key.ToString() == "theme").Select(c => c.Value).First();
+
+            var pageYamlStream = GetYamlStreamFromMarkdown(item.SourceText);
+            var pageYamlNode = (YamlMappingNode)pageYamlStream.First().RootNode;
+
+            var pageLayout = pageYamlNode.Where(c => c.Key.ToString() == "layout").Select(c => c.Value).First();
 
             builder.AppendLine("// <auto-generated/>");
             builder.AppendLine();
@@ -114,6 +256,7 @@ namespace BlazorDocs.SourceGenerators
             builder.AppendLine($"namespace {GetNamespaceFromPath(options.RootNamespace, item.FilePath)}");
             builder.AppendLine("{");
             builder.AppendLine($"    [Route(\"{GetRouteFromPath(item.FilePath)}\")]");
+            builder.AppendLine($"    [Layout(typeof({configTheme}.Shared.{pageLayout}))]");
             builder.AppendLine($"    public class {GetClassNameFromPath(item.FilePath)} : ComponentBase");
             builder.AppendLine("    {");
             builder.AppendLine("        [Inject]");
@@ -124,7 +267,7 @@ namespace BlazorDocs.SourceGenerators
             builder.AppendLine("        {");
             builder.AppendLine("            builder.AddMarkupContent(0,");
             builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"");
-            builder.AppendLine(Markdown.ToHtml(item.MarkdownSourceText, markdownPipeline).Trim(Environment.NewLine.ToArray()));
+            builder.AppendLine(Markdown.ToHtml(item.SourceText, _markdownPipeline).Trim(Environment.NewLine.ToArray()));
             builder.AppendLine("\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"\"");
             builder.AppendLine("            );");
             builder.AppendLine("        }");
@@ -139,6 +282,76 @@ namespace BlazorDocs.SourceGenerators
             builder.AppendLine("#pragma warning restore 1591");
 
             return builder.ToString();
+        }
+
+        /// <summary>
+        /// Maps a pages children nodes.
+        /// </summary>
+        /// <param name="parent">The parent <see cref="YamlMappingNode"/>.</param>
+        /// <param name="parentRoute">The parent route.</param>
+        /// <param name="pages">The pages.</param>
+        private void MapPageChildren(YamlMappingNode parent, string parentRoute, IEnumerable<(SourceGeneratorProjectItem file, string route)> pages)
+        {
+            var children = new YamlSequenceNode();
+
+            var childPages = pages.Where(p => !p.route.Substring(parentRoute.Length, p.route.Length - parentRoute.Length).Trim('/').Contains('/'));
+
+            foreach (var (file, route) in childPages)
+            {
+                var pageYamlStream = GetYamlStreamFromMarkdown(file.SourceText);
+
+                var pageYamlNode = (YamlMappingNode)pageYamlStream.First().RootNode;
+                pageYamlNode.Add("link", route);
+
+                MapPageChildren(pageYamlNode, route, pages.Where(p => p.route.StartsWith(route) && p.route != route));
+
+                children.Add(pageYamlNode);
+            }
+
+            parent.Add("children", children);
+        }
+
+        /// <summary>
+        /// Gets the yaml front matter stream from a markdown document.
+        /// </summary>
+        /// <param name="markdownText">The markdown text.</param>
+        /// <returns>The yaml stream.</returns>
+        private YamlStream GetYamlStreamFromMarkdown(string markdownText)
+        {
+            var markdown = Markdown.Parse(markdownText, _markdownPipeline);
+            var frontMatterBlock = markdown.Descendants<YamlFrontMatterBlock>().FirstOrDefault();
+
+            return GetYamlStreamFromText(markdownText.Substring(frontMatterBlock.Span.Start, frontMatterBlock.Span.End - 3));
+        }
+
+        /// <summary>
+        /// Gets the yaml front stream from yaml text.
+        /// </summary>
+        /// <param name="yamlText">The yaml text.</param>
+        /// <returns>The yaml stream.</returns>
+        private YamlStream GetYamlStreamFromText(string yamlText)
+        {
+            var yamlStream = new YamlStream();
+
+            yamlStream.Load(new StringReader(yamlText));
+
+            return yamlStream;
+        }
+
+        /// <summary>
+        /// Gets a json document from a yaml stream.
+        /// </summary>
+        /// <param name="yamlStream">The yaml stream.</param>
+        /// <returns>The json document.</returns>
+        private string GetJsonFromYamlStream(YamlStream yamlStream)
+        {
+            var yamlBuilder = new StringBuilder();
+
+            yamlStream.Save(new StringWriter(yamlBuilder));
+
+            var yaml = _yamlDeserializer.Deserialize(new StringReader(yamlBuilder.ToString()));
+
+            return _jsonSerializer.Serialize(yaml!);
         }
 
         /// <summary>
