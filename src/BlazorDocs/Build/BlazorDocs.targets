@@ -1,5 +1,6 @@
 <Project>
   <ItemGroup>
+    <AdditionalFiles Include="**/*.yaml" Exclude="bin/**;obj/**" />
     <AdditionalFiles Include="**/*.md" Exclude="bin/**;obj/**" />
   </ItemGroup>
 </Project>
