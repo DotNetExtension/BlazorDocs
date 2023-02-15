@@ -3,7 +3,6 @@
 // See the LICENSE file in the project root for more information.
 
 using BlazorDocs.Sample;
-using BlazorDocs.Sample.Extensions;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 

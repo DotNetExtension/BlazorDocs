@@ -188,7 +188,7 @@ namespace BlazorDocs.SourceGenerators
             builder.AppendLine("using BlazorDocs.Models;");
             builder.AppendLine("using BlazorDocs.Services;");
             builder.AppendLine();
-            builder.AppendLine($"namespace {options.RootNamespace}.Extensions");
+            builder.AppendLine($"namespace {options.RootNamespace}");
             builder.AppendLine("{");
             builder.AppendLine("    /// <summary>");
             builder.AppendLine("    /// Extension methods for Blazor Docs.");
