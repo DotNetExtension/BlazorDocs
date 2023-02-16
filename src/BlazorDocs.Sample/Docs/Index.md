@@ -1,6 +1,6 @@
 ---
 title: Blazor Docs
-layout: MainLayout
+layout: AllProducts
 ---
 # Header
 Content

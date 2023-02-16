@@ -261,7 +261,7 @@ namespace BlazorDocs.SourceGenerators
             builder.AppendLine($"namespace {GetNamespaceFromPath(options.RootNamespace, item.FilePath)}");
             builder.AppendLine("{");
             builder.AppendLine($"    [Route(\"{GetRouteFromPath(item.FilePath)}\")]");
-            builder.AppendLine($"    [Layout(typeof({configTheme}.Shared.{pageLayout}))]");
+            builder.AppendLine($"    [Layout(typeof({configTheme}.Layouts.{pageLayout}))]");
             builder.AppendLine($"    public class {GetClassNameFromPath(item.FilePath)} : ComponentBase");
             builder.AppendLine("    {");
             builder.AppendLine("        [Inject]");
