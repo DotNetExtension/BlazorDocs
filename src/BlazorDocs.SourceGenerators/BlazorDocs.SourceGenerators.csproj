@@ -9,7 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="H.Generators.Extensions" Version="1.9.1" PrivateAssets="all" />
-    <PackageReference Include="Markdig" Version="0.30.4" PrivateAssets="all" />
+    <PackageReference Include="Markdig" Version="0.34.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" Version="3.3.4">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
